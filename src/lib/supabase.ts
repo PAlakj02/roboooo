@@ -29,6 +29,16 @@ export async function signIn(email: string, password: string) {
   if (error) throw new Error(error.message);
 }
 
+// Changes the signed-in user's password. Supabase checks the current one first
+// (we re-sign-in with it) so a left-open laptop can't be used to take over the account.
+export async function changePassword(email: string, current: string, next: string) {
+  const s = await sb();
+  const re = await s.auth.signInWithPassword({ email, password: current.trim() });
+  if (re.error) throw new Error("Current password is wrong.");
+  const { error } = await s.auth.updateUser({ password: next.trim() });
+  if (error) throw new Error(error.message);
+}
+
 export async function signOut() {
   await (await sb()).auth.signOut();
 }

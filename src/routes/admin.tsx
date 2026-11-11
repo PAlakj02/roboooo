@@ -18,6 +18,7 @@ import {
   type Lesson,
 } from "@/lib/lessons";
 import {
+  changePassword,
   isAdmin,
   listAdmins,
   setAdmin,
@@ -148,7 +149,7 @@ function Login() {
   );
 }
 
-const TABS = ["Lessons", "Gallery", "Admins"] as const;
+const TABS = ["Lessons", "Gallery", "Admins", "My account"] as const;
 
 function Dashboard({ email }: { email: string }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Lessons");
@@ -177,6 +178,7 @@ function Dashboard({ email }: { email: string }) {
       {tab === "Lessons" && <LessonManager />}
       {tab === "Gallery" && <MediaManager />}
       {tab === "Admins" && <AdminManager me={email} />}
+      {tab === "My account" && <AccountManager email={email} />}
     </Section>
   );
 }
@@ -703,6 +705,67 @@ function AdminManager({ me }: { me: string }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function AccountManager({ email }: { email: string }) {
+  const empty = { current: "", next: "", again: "" };
+  const [f, setF] = useState(empty);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (f.next.trim().length < 8)
+      return setMsg({ ok: false, text: "New password must be at least 8 characters." });
+    if (f.next !== f.again) return setMsg({ ok: false, text: "The new passwords don't match." });
+    setBusy(true);
+    try {
+      await changePassword(email, f.current, f.next);
+      setF(empty);
+      setMsg({ ok: true, text: "Password changed. Use the new one next time you sign in." });
+    } catch (err) {
+      setMsg({ ok: false, text: errText(err) });
+    }
+    setBusy(false);
+  };
+
+  const input = (key: keyof typeof empty, text: string, auto: string) => (
+    <label className={label}>
+      {text}
+      <input
+        required
+        type="password"
+        autoComplete={auto}
+        className={field}
+        value={f[key]}
+        onChange={(e) => setF({ ...f, [key]: e.target.value })}
+      />
+    </label>
+  );
+
+  return (
+    <div className="mt-6 rounded-2xl border border-border p-5 sm:p-6">
+      <h2 className="text-xl text-primary">Change password</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Signed in as {email}.</p>
+      <form onSubmit={submit} className="mt-4 grid gap-4">
+        {input("current", "Current password", "current-password")}
+        {input("next", "New password (8+ characters)", "new-password")}
+        {input("again", "New password again", "new-password")}
+        {msg && (
+          <p className={`text-sm font-semibold ${msg.ok ? "text-primary" : "text-destructive"}`}>
+            {msg.text}
+          </p>
+        )}
+        <button
+          disabled={busy}
+          className={`${btn} bg-primary text-primary-foreground sm:justify-self-start`}
+        >
+          {busy ? "Saving..." : "Change password"}
+        </button>
+      </form>
     </div>
   );
 }
