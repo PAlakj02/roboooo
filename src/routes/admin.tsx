@@ -21,6 +21,8 @@ import {
   changePassword,
   isAdmin,
   listAdmins,
+  sendPasswordReset,
+  setNewPassword,
   setAdmin,
   signIn,
   signOut,
@@ -42,11 +44,15 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 function Admin() {
   const [email, setEmail] = useState<string | null | undefined>(undefined);
   const [allowed, setAllowed] = useState<boolean | undefined>(undefined);
+  // True when the user arrived from a "reset password" email link.
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     if (!supabaseReady) return;
+    if (window.location.hash.includes("type=recovery")) setRecovering(true);
     let unsub: (() => void) | undefined;
-    watchUser(async (e) => {
+    watchUser(async (e, recovery) => {
+      if (recovery) setRecovering(true);
       setEmail(e);
       setAllowed(undefined);
       setAllowed(e ? await isAdmin().catch(() => false) : false);
@@ -74,6 +80,8 @@ function Admin() {
 
   if (!email) return <Login />;
 
+  if (recovering) return <SetNewPassword email={email} onDone={() => setRecovering(false)} />;
+
   if (!allowed)
     return (
       <Section className="max-w-xl text-center">
@@ -97,13 +105,20 @@ function Login() {
   const [f, setF] = useState({ email: "", password: "" });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setMsg("");
     try {
-      await signIn(f.email, f.password);
+      if (forgot) {
+        await sendPasswordReset(f.email);
+        setSent(true);
+      } else {
+        await signIn(f.email, f.password);
+      }
     } catch (err) {
       const m = errText(err);
       setMsg(m.includes("Invalid login") ? "Wrong email or password." : m);
@@ -111,12 +126,20 @@ function Login() {
     setBusy(false);
   };
 
+  const toggle = () => {
+    setForgot(!forgot);
+    setSent(false);
+    setMsg("");
+  };
+
   return (
     <Section className="max-w-md">
       <form onSubmit={submit} className="grid gap-4 rounded-2xl bg-card p-6 shadow-card">
         <h1 className="text-3xl text-primary">RoboRoots Admin</h1>
         <p className="-mt-2 text-sm text-muted-foreground">
-          Sign in to add lessons, slides and gallery items.
+          {forgot
+            ? "Enter your admin email and we'll send you a link to set a new password."
+            : "Sign in to add lessons, slides and gallery items."}
         </p>
         <label className={label}>
           Email
@@ -129,20 +152,31 @@ function Login() {
             onChange={(e) => setF({ ...f, email: e.target.value })}
           />
         </label>
-        <label className={label}>
-          Password
-          <input
-            required
-            type="password"
-            autoComplete="current-password"
-            className={field}
-            value={f.password}
-            onChange={(e) => setF({ ...f, password: e.target.value })}
-          />
-        </label>
+        {!forgot && (
+          <label className={label}>
+            Password
+            <input
+              required
+              type="password"
+              autoComplete="current-password"
+              className={field}
+              value={f.password}
+              onChange={(e) => setF({ ...f, password: e.target.value })}
+            />
+          </label>
+        )}
         {msg && <p className="text-sm font-semibold text-destructive">{msg}</p>}
+        {sent && (
+          <p className="text-sm font-semibold text-primary">
+            If that email has an admin login, a reset link is on its way. Check your inbox (and
+            spam).
+          </p>
+        )}
         <button disabled={busy} className={`${btn} bg-primary text-primary-foreground`}>
-          {busy ? "Signing in..." : "Sign in"}
+          {busy ? "Please wait..." : forgot ? "Send reset link" : "Sign in"}
+        </button>
+        <button type="button" onClick={toggle} className="text-sm font-bold text-primary underline">
+          {forgot ? "Back to sign in" : "Forgot password?"}
         </button>
       </form>
     </Section>
@@ -767,5 +801,63 @@ function AccountManager({ email }: { email: string }) {
         </button>
       </form>
     </div>
+  );
+}
+
+function SetNewPassword({ email, onDone }: { email: string; onDone: () => void }) {
+  const [f, setF] = useState({ next: "", again: "" });
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setMsg("");
+    if (f.next.trim().length < 8) return setMsg("Password must be at least 8 characters.");
+    if (f.next !== f.again) return setMsg("The passwords don't match.");
+    setBusy(true);
+    try {
+      await setNewPassword(f.next);
+      // Drop the one-time token from the address bar.
+      window.history.replaceState(null, "", window.location.pathname);
+      onDone();
+    } catch (err) {
+      setMsg(errText(err));
+    }
+    setBusy(false);
+  };
+
+  return (
+    <Section className="max-w-md">
+      <form onSubmit={submit} className="grid gap-4 rounded-2xl bg-card p-6 shadow-card">
+        <h1 className="text-3xl text-primary">Set a new password</h1>
+        <p className="-mt-2 text-sm text-muted-foreground">For {email}</p>
+        <label className={label}>
+          New password (8+ characters)
+          <input
+            required
+            type="password"
+            autoComplete="new-password"
+            className={field}
+            value={f.next}
+            onChange={(e) => setF({ ...f, next: e.target.value })}
+          />
+        </label>
+        <label className={label}>
+          New password again
+          <input
+            required
+            type="password"
+            autoComplete="new-password"
+            className={field}
+            value={f.again}
+            onChange={(e) => setF({ ...f, again: e.target.value })}
+          />
+        </label>
+        {msg && <p className="text-sm font-semibold text-destructive">{msg}</p>}
+        <button disabled={busy} className={`${btn} bg-primary text-primary-foreground`}>
+          {busy ? "Saving..." : "Save new password"}
+        </button>
+      </form>
+    </Section>
   );
 }

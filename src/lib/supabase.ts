@@ -43,9 +43,27 @@ export async function signOut() {
   await (await sb()).auth.signOut();
 }
 
-export async function watchUser(cb: (email: string | null) => void) {
+// Emails a "reset your password" link that brings the user back to /admin.
+export async function sendPasswordReset(email: string) {
   const s = await sb();
-  const { data } = s.auth.onAuthStateChange((_e, session) => cb(session?.user.email ?? null));
+  const { error } = await s.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/admin`,
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Used after arriving from a reset link (the link already signs the user in).
+export async function setNewPassword(next: string) {
+  const s = await sb();
+  const { error } = await s.auth.updateUser({ password: next.trim() });
+  if (error) throw new Error(error.message);
+}
+
+export async function watchUser(cb: (email: string | null, recovery: boolean) => void) {
+  const s = await sb();
+  const { data } = s.auth.onAuthStateChange((e, session) =>
+    cb(session?.user.email ?? null, e === "PASSWORD_RECOVERY"),
+  );
   return () => data.subscription.unsubscribe();
 }
 

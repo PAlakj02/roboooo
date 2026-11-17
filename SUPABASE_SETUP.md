@@ -19,7 +19,8 @@
 4. **Database**: open `supabase/setup.sql`, replace `ADMIN_EMAIL_HERE` (last line) with the
    email from step 2, paste the whole file into SQL Editor > New query, and click **Run**.
 5. **Redirect URL** (for password-reset emails): Authentication > URL Configuration > Site URL:
-   the website's address.
+   the website's address, and under **Redirect URLs** add `https://<each-site-domain>/admin`
+   (one line per domain, e.g. the main site and the Vercel testing site).
 
 ## Using it
 
@@ -33,8 +34,10 @@
 
 ## Passwords and access
 
-- Change a password or reset a forgotten one: Supabase > Authentication > Users > the user's
-  `...` menu.
+- Change your password: `/admin` > **My account** tab (asks for the current password first).
+- Forgot it: on the `/admin` sign-in page click **Forgot password?**, enter the admin email,
+  open the emailed link and choose a new password.
+- Backup: Supabase > Authentication > Users > the user > set a new password.
 - Add another editor: create their user (step 2), then add their email in the **Admins** tab.
   An email that has a login but is not on the admin list can sign in but cannot change anything.
 
