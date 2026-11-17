@@ -9,7 +9,7 @@ import reader from "@/assets/press/reader-times.jpg";
 import vidhan from "@/assets/press/vidhan-kesari.jpg";
 import upKiBaat from "@/assets/press/up-ki-baat.jpg";
 
-export const EMAIL = "roborootsinitiative@gmail.com";
+export const EMAIL = "roborootsinc@gmail.com";
 
 // Keys and links come from environment variables: the .env file locally, and
 // Vercel > Project > Settings > Environment Variables when deployed. See .env.example.
@@ -19,7 +19,7 @@ export const SUPABASE_PUBLISHABLE_KEY: string =
   import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ?? "";
 
 // Shown on the Privacy, Terms and Refund pages. Replace the placeholders before going live.
-export const POLICY_EMAIL = "[your-email@example.com]";
+export const POLICY_EMAIL = EMAIL;
 export const POLICY_LOCATION = "[City, State, Country]";
 export const POLICY_UPDATED = "November 4, 2026";
 
